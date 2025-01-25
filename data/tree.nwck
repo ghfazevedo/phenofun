@@ -1,0 +1,4 @@
+#NEXUS
+begin trees;
+	tree TREE1 = [&R]((nig:0.5211[&pop_size=793.2773556],eic:0.5211[&pop_size=812.332229]):1.5106[&pop_size=1283.028145],(key:0.9315[&pop_size=1053.153396],per:0.9315[&pop_size=546.6451283]):1.1002[&pop_size=500.2917837]):1.7752[&pop_size=319.2029155];
+end;
