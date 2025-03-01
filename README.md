@@ -1,16 +1,15 @@
 # Phenotypic character fixation probability under neutrality (PhenoFUN)
 
-This is a python tool to simulate a hypothetical nuclear locus that controls a phenotypic character under the coalescent process and to calculate the probability of this character to be fixed in alternate states on different populations. The method was first proposed by [Masta & Maddison (2002)](https://doi.org/10.1073/pnas.072493099) and this program was used in [Azevedo et al. (in prep)](). The model assumes that the phenotypic states of the character is controlled by a single mutation in one locus and that the mutation rate is the smallest possible (parsimony).
+This is a python tool to simulate a hypothetical nuclear locus that controls a phenotypic character under the coalescent process and to calculate the probability of this character to be fixed in alternate states on different populations. The method was first proposed by [Masta & Maddison (2002)](https://doi.org/10.1073/pnas.072493099) and this program was used in [Azevedo et al. (in prep)](). The model assumes that the phenotypic states of the character is controlled by a single mutation in one locus and that the mutation rate is the slowest possible (parsimony).
 
-If you use this program, please cite [Azevedo et al. (in prep)]() and refer to github page.
+If you use this program, please cite [Azevedo et al. (in prep)]() and refer to [this github page](https://github.com/ghfazevedo/phenofun).
 
 ## Installation
 
-This program requires [DendroPy](https://jeetsukumaran.github.io/DendroPy).
-```
-pip install dendropy==5.0.1
-```
-After installing dependencies, clone the repository and install it
+This program uses [DendroPy](https://jeetsukumaran.github.io/DendroPy) library that is installed automatically as a dependency.
+Please cite [DendroPy](https://jeetsukumaran.github.io/DendroPy).
+
+To install PhenoFUN clone this github page and use pip.
 
 ```
 git clone https://github.com/ghfazevedo/phenofun
@@ -20,8 +19,16 @@ pip install .
 
 ## Example usage
 ```
-phenofun -t data/tree.nwck -n 100 -s 10,10,10,10 -os 3
+phenofun -t data/tree.nwck -n 1000 -s 10,10,10,10 -os 3
 ```
+## Outputs
+The program print the probability of the target *s* to the terminal and creates the files:
+1. [S_statsProbs](phenofun_out/S_statsProbs.txt) with the probability of the observed s statistics provided.
+2. [simulated_gene_trees.nwck](phenofun_out/simulated_gene_trees.nwck) with all simulated trees.
+3. [target_gene_trees.nwck](phenofun_out/target_gene_trees.nwck) with only gene trees that show the target *s*.
+4. [simulated_s.csv](phenofun_out/simulated_s.csv) with all values of *s* for all simulations.
+5. [histogram.pdf](phenofun_out/histogram.pdf) and [histogram.png](phenofun_out/histogram.png) which are the histogram plots with PDF estimated curve, with the inferior 5% inferior percentile marked in red, and with a vertical red line showing the target *s* value. 
+![histogram.png](phenofun_out/histogram.png)
 
 ## Command Options
 
