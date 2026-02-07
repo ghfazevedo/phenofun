@@ -29,11 +29,13 @@ The program print the probability of the target *s* to the terminal and creates 
 4. [simulated_s.csv](phenofun_out/simulated_s.csv) with all values of *s* for all simulations.
 5. [histogram.pdf](phenofun_out/histogram.pdf) and [histogram.png](phenofun_out/histogram.png) which are the histogram plots with PDF estimated curve, with the inferior 5% inferior percentile marked in red, and with a vertical red line showing the target *s* value. 
 ![histogram.png](phenofun_out/histogram.png)
+6. [barplot.pdf](phenofun_out/histogram.pdf) and [barplot.png](phenofun_out/histogram.png) which are the plot with probability of drift and selection (non-drift) forces fixing the alternate states. 
+![barplot.png](phenofun_out/barplot.png)
 
 ## Command Options
 
 ```
-usage: phenofun.py [-h] -t TREE [-o OUT_DIR] [-n N_SIMULATIONS] -s N_SAMPLED_INDIVIDUALS -os OBSERVED_S_STATISTICS
+usage: phenofun [-h] -t TREE [-o OUT_DIR] [-n N_SIMULATIONS] -s N_SAMPLED_INDIVIDUALS -os OBSERVED_S_STATISTICS
 
 Calculates the probability of fixation of differences in a hypothetical nuclear locus that controls phenotype under neutral divergence.
 

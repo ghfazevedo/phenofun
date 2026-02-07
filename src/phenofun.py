@@ -153,9 +153,9 @@ def main():
                 label=f'Observed s = {args.observed_s_statistics}')
 
     # Compute and plot the smooth PDF curve with gaussian
-    kde = gaussian_kde(s_distribution)  # Kernel Density Estimation
-    x_vals = np.linspace(min(s_distribution), max(s_distribution), 1000)  # X range for smooth curve
-    plt.plot(x_vals, kde(x_vals), color='black', linewidth=2, label="PDF Curve")  # Smooth PDF
+    #kde = gaussian_kde(s_distribution)  # Kernel Density Estimation
+    #x_vals = np.linspace(min(s_distribution), max(s_distribution), 1000)  # X range for smooth curve
+    #plt.plot(x_vals, kde(x_vals), color='black', linewidth=2, label="PDF Curve")  # Smooth PDF
 
     # Compute and plot the smooth PDF curve with lognormal distribution
     #shape, loc, scale = lognorm.fit(s_distribution, floc=0)  # Estimate parameters
@@ -175,7 +175,53 @@ def main():
     # Save as PNG and PDF
     plt.savefig(os.path.join(args.out_dir, "histogram.png"), dpi=300)
     plt.savefig(os.path.join(args.out_dir,"histogram.pdf") )
+
     print("Histograms saved in", os.path.join(args.out_dir,"histogram.pdf"), "and in", os.path.join(args.out_dir,"histogram.png") )
+
+    # BAR PLOT: p(drift) vs p(non-drift) with evidence lines ---
+    prob_drift = probability
+    prob_non_drift = 1 - probability
+    bar_labels = ['p(drift)', 'p(non-drift)']
+    bar_values = [prob_drift, prob_non_drift]
+
+    fig, ax = plt.subplots(figsize=(6, 6))
+    bars = ax.bar(bar_labels, bar_values, color=['#377eb8', '#e41a1c'], edgecolor='black', alpha=0.8)
+
+    # Evidence lines and labels (adapted from R code)
+    BF_vals = np.array([3.2, 10, 100])
+    prior = 0.5
+    strength = BF_vals / (BF_vals + 1)
+    y_lines = np.concatenate(([prior], strength))
+    labels = ["no support", "weak", "substantial", "strong"]
+
+    # Draw horizontal lines
+    ax.axhline(prior, linestyle='solid', color='grey', linewidth=1)
+    linestyles = ['dotted', 'dashed', (0, (5, 10))]  # solid already used for prior
+    for y, ls in zip(strength, linestyles):
+        ax.axhline(y, linestyle=ls, color='grey', linewidth=1)
+
+    # Annotate evidence labels at the right edge
+    y_for_labels = y_lines
+    for y, label in zip(y_for_labels, labels):
+        ax.text(1.05, y, label, ha='left', va='center', color='grey', fontsize=10, transform=ax.get_yaxis_transform())
+
+    # Annotate bar values
+    for bar in bars:
+        height = bar.get_height()
+        ax.annotate(f'{height:.3f}',
+                    xy=(bar.get_x() + bar.get_width() / 2, height),
+                    xytext=(0, 5),
+                    textcoords="offset points",
+                    ha='center', va='bottom', fontsize=12, fontweight='bold')
+
+    ax.set_ylim(0, 1.05)
+    ax.set_ylabel('Probability')
+    ax.set_title('Drift vs Non-drift Probability')
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(args.out_dir, "barplot.png"), dpi=300)
+    plt.savefig(os.path.join(args.out_dir, "barplot.pdf"))
+    print("Bar plot saved in", os.path.join(args.out_dir, "barplot.pdf"), "and in", os.path.join(args.out_dir, "barplot.png"))
 
 if __name__ == "__main__":
     main()
