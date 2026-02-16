@@ -1,2 +1,4 @@
 /build
 /phenofun.egg-info
+.vscode/settings.json
+src/__pycache__/phenofun.cpython-311.pyc

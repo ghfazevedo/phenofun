@@ -6,7 +6,8 @@ import dendropy
 from dendropy.simulate import treesim
 from dendropy.model import reconcile
 from dendropy.model import coalescent
-from dendropy.model.reconcile import monophyletic_partition_discordance
+#from dendropy.model.reconcile import monophyletic_partition_discordance
+from dendropy.model.parsimony import fitch_down_pass
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -90,24 +91,55 @@ def main():
         schema="newick"
         )
 
-    # Create the function to get species name of taxon object label of the gene trees. 
-    # This will be used for the taxa membership, since the simulated tree has taxa with names like "species1 0", "species1 1", "species2 0"
-    def mf(t):
-        index=t.label.find(" ")
-        return t.label[:index]
-    
-    # Iterate over trees to calculate 
+    # Iterate over trees to calculate s
     s_count = 0 
     target_trees = dendropy.TreeList()
     s_distribution = []
+
+    species_to_code = {}
+    taxon_state_sets_map = {}
+    
+    current_code = 0
+    
+    for taxon in trees.taxon_namespace:
+        # Extract species name (first element before space)
+        species = taxon.label.split()[0]
+        
+        # Assign a new code if species not seen yet
+        if species not in species_to_code:
+            species_to_code[species] = current_code
+            current_code += 1
+        
+        # Get species code
+        code = species_to_code[species]
+        
+        # Assign to taxon_state_sets_map
+        taxon_state_sets_map[taxon] = [set([code])]
+
     for tree in trees:
-        taxon_namespace = tree.taxon_namespace
-        tax_parts = taxon_namespace.partition(membership_func=mf)
-        s = monophyletic_partition_discordance(tree, taxon_namespace_partition=tax_parts)
+        s = fitch_down_pass(tree.postorder_node_iter(),
+                            taxon_state_sets_map=taxon_state_sets_map)
         s_distribution.append(s)
-        if s == args.observed_s_statistics:
+        if s == 3:
             s_count = s_count + 1
             target_trees.append(tree)
+
+    #The commented code below uses the monophyletic_partition_discordance() which, contrary to statement in DendroPy manual,
+    #  does not seem to be exactly the s statistics. So I chenged to the code above.
+    
+    ## Create the function to get species name of taxon object label of the gene trees. 
+    ## This will be used for the taxa membership, since the simulated tree has taxa with names like "species1 0", "species1 1", "species2 0"
+    #def mf(t):
+    #    index=t.label.find(" ")
+    #    return t.label[:index] 
+    #for tree in trees:
+    #    taxon_namespace = tree.taxon_namespace
+    #    tax_parts = taxon_namespace.partition(membership_func=mf)
+    #    s = monophyletic_partition_discordance(tree, taxon_namespace_partition=tax_parts)
+    #    s_distribution.append(s)
+    #    if s == args.observed_s_statistics:
+    #        s_count = s_count + 1
+    #        target_trees.append(tree)
 
 
     probability = s_count/args.n_simulations
@@ -129,12 +161,23 @@ def main():
     print("Simulated s values saved in", os.path.join(args.out_dir,"simulated_s.csv") )
 
     # Create a histogram of s values
-    # Compute the 95% confidence interval (2.5% and 97.5% percentiles)
+    # Compute lower the 95% confidence interval
     lower_bound = np.percentile(s_distribution, 5.0)
 
     # Create histogram
-    bins = np.histogram_bin_edges(s_distribution, bins=10)
-    hist_values, bin_edges, patches = plt.hist(s_distribution, bins=bins, density=True, edgecolor='black', alpha=0.7)
+    # Set number of bins to the maximum value in s_distribution
+    max_s = int(max(s_distribution))
+    # Create integer bins from min to max (inclusive)
+    bins = np.arange(int(min(s_distribution)), max_s + 2)  # +2 to include the last value
+    hist_values, bin_edges, patches = plt.hist(
+        s_distribution,
+        bins=bins,
+        density=True,
+        edgecolor='black',
+        alpha=0.7,
+        histtype='bar',
+        rwidth=1.0  # bars touch each other
+    )
 
     # Color bars conditionally
     for patch, left_edge in zip(patches, bin_edges[:-1]):
@@ -178,11 +221,11 @@ def main():
 
     print("Histograms saved in", os.path.join(args.out_dir,"histogram.pdf"), "and in", os.path.join(args.out_dir,"histogram.png") )
 
-    # BAR PLOT: p(drift) vs p(non-drift) with evidence lines ---
-    prob_drift = probability
-    prob_non_drift = 1 - probability
-    bar_labels = ['p(drift)', 'p(non-drift)']
-    bar_values = [prob_drift, prob_non_drift]
+    # BAR PLOT: p(s=target | drift) vs p(s ≠ target) with evidence lines ---
+    prob_target = probability
+    prob_different = 1 - probability
+    bar_labels = [f'p(s = {args.observed_s_statistics} | drift)', f'p(s ≠ {args.observed_s_statistics} | drift)']
+    bar_values = [prob_target, prob_different]
 
     fig, ax = plt.subplots(figsize=(6, 6))
     bars = ax.bar(bar_labels, bar_values, color=['#377eb8', '#e41a1c'], edgecolor='black', alpha=0.8)
@@ -216,7 +259,7 @@ def main():
 
     ax.set_ylim(0, 1.05)
     ax.set_ylabel('Probability')
-    ax.set_title('Drift vs Non-drift Probability')
+    ax.set_title('s=3 vs s≠3')
 
     plt.tight_layout()
     plt.savefig(os.path.join(args.out_dir, "barplot.png"), dpi=300)
