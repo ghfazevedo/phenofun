@@ -22,7 +22,9 @@ def parse_arguments():
     parser.add_argument("-o", "--out_dir", default="./phenofun_out", help="Output directory")
     parser.add_argument("-n", "--n_simulations", default="100", help="Number of gene trees to simulate.")
     parser.add_argument("-s", "--n_sampled_individuals", type=str, required=True, help="The number of individuals per population/species separated by comma. It should be in the same order as the populations appear in the species tree file.")
-    parser.add_argument("-os", "--observed_s_statistics", type=int, required=True, help="The target s statistics as observed in the real world data to calculate the probability of generating it through the simulations.")
+    parser.add_argument("-ts", "--target_s_statistics", type=int, required=True, help="The target s statistics as observed in the real world data to calculate the probability of generating it through the simulations.")
+    parser.add_argument("-p", "--phenotype_map", type=str, required=False,
+        help="Optional: Path to a tab-separated file associating species in the tree with phenotype codes. Format: one line per species, e.g. 'species1\t0', 'species2\t0', 'species3\t1', 'species4\t[0,1]'. Use [0,1] for uncertain or polymorphic states. If provided, this file will be used to assign phenotype states to taxa instead of automatically set one different state per species on tree.")
     parser.add_argument('-v', '--version', action='version', version=f'%(prog)s {__version__}')
     
     return parser.parse_args()
@@ -91,36 +93,53 @@ def main():
         schema="newick"
         )
 
+    # Attribute code (phenotype states) to species
+    taxon_state_sets_map = {}
+    if args.phenotype_map:
+        # Read phenotype map file
+        phenotype_map = {}
+        with open(args.phenotype_map, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                parts = line.split('\t')
+                if len(parts) != 2:
+                    raise ValueError(f"Invalid phenotype_map line: {line}")
+                species, code_str = parts
+                # Handle code as int, list, or set
+                if code_str.startswith('[') and code_str.endswith(']'):
+                    # Parse list, e.g. [0,1]
+                    code = set(eval(code_str))
+                else:
+                    code = set([int(code_str)])
+                phenotype_map[species] = code
+        for taxon in trees.taxon_namespace:
+            species = taxon.label.split()[0]
+            if species not in phenotype_map:
+                raise ValueError(f"Species '{species}' not found in phenotype_map file.")
+            taxon_state_sets_map[taxon] = [phenotype_map[species]]
+    else:
+        species_to_code = {}
+        current_code = 0
+        for taxon in trees.taxon_namespace:
+            species = taxon.label.split()[0]
+            if species not in species_to_code:
+                species_to_code[species] = current_code
+                current_code += 1
+            code = species_to_code[species]
+            taxon_state_sets_map[taxon] = [set([code])]
+
     # Iterate over trees to calculate s
     s_count = 0 
     target_trees = dendropy.TreeList()
     s_distribution = []
 
-    species_to_code = {}
-    taxon_state_sets_map = {}
-    
-    current_code = 0
-    
-    for taxon in trees.taxon_namespace:
-        # Extract species name (first element before space)
-        species = taxon.label.split()[0]
-        
-        # Assign a new code if species not seen yet
-        if species not in species_to_code:
-            species_to_code[species] = current_code
-            current_code += 1
-        
-        # Get species code
-        code = species_to_code[species]
-        
-        # Assign to taxon_state_sets_map
-        taxon_state_sets_map[taxon] = [set([code])]
-
     for tree in trees:
         s = fitch_down_pass(tree.postorder_node_iter(),
                             taxon_state_sets_map=taxon_state_sets_map)
         s_distribution.append(s)
-        if s == 3:
+        if s == args.target_s_statistics:
             s_count = s_count + 1
             target_trees.append(tree)
 
@@ -137,7 +156,7 @@ def main():
     #    tax_parts = taxon_namespace.partition(membership_func=mf)
     #    s = monophyletic_partition_discordance(tree, taxon_namespace_partition=tax_parts)
     #    s_distribution.append(s)
-    #    if s == args.observed_s_statistics:
+    #    if s == args.target_s_statistics:
     #        s_count = s_count + 1
     #        target_trees.append(tree)
 
@@ -149,10 +168,10 @@ def main():
         schema="newick"
         )
 
-    print(f"Probability of s statistics being equal to {args.observed_s_statistics}: {probability}")
+    print(f"Probability of s statistics being equal to {args.target_s_statistics}: {probability}")
 
     results = open(os.path.join(args.out_dir, "S_statsProbs.txt"), "w")
-    print(f"Probability of s statistics being equal to '{args.observed_s_statistics}': '{probability}'", file=results)
+    print(f"Probability of s statistics being equal to '{args.target_s_statistics}': '{probability}'", file=results)
     results.close()
 
     # Save simulated s values
@@ -191,9 +210,9 @@ def main():
     #plt.hist(s_distribution, bins=10, edgecolor='black', alpha=0.7)
 
     # Add vertical line at 'target'
-    plt.axvline(x=args.observed_s_statistics, color='r',
+    plt.axvline(x=args.target_s_statistics, color='r',
                 linestyle='dashed', linewidth=2,
-                label=f'Observed s = {args.observed_s_statistics}')
+                label=f'Observed s = {args.target_s_statistics}')
 
     # Compute and plot the smooth PDF curve with gaussian
     #kde = gaussian_kde(s_distribution)  # Kernel Density Estimation
@@ -209,7 +228,7 @@ def main():
 
     # Add Label at the Top, Close to the Line 
     y_top = plt.ylim()[1] * 1.01  # Position above the highest histogram bar
-    plt.text(args.observed_s_statistics, y_top, f"p(s={args.observed_s_statistics})={probability}", color='black', ha='center', va='bottom', fontsize=12, fontweight='bold')
+    plt.text(args.target_s_statistics, y_top, f"p(s={args.target_s_statistics})={probability}", color='black', ha='center', va='bottom', fontsize=12, fontweight='bold')
 
     # Labels and title
     plt.xlabel('Simulated s statistics')
@@ -224,7 +243,7 @@ def main():
     # BAR PLOT: p(s=target | drift) vs p(s ≠ target) with evidence lines ---
     prob_target = probability
     prob_different = 1 - probability
-    bar_labels = [f'p(s = {args.observed_s_statistics} | drift)', f'p(s ≠ {args.observed_s_statistics} | drift)']
+    bar_labels = [f'p(s = {args.target_s_statistics} | drift)', f'p(s ≠ {args.target_s_statistics} | drift)']
     bar_values = [prob_target, prob_different]
 
     fig, ax = plt.subplots(figsize=(6, 6))
@@ -259,7 +278,7 @@ def main():
 
     ax.set_ylim(0, 1.05)
     ax.set_ylabel('Probability')
-    ax.set_title('s=3 vs s≠3')
+    ax.set_title('Probability of s = target and s > target')
 
     plt.tight_layout()
     plt.savefig(os.path.join(args.out_dir, "barplot.png"), dpi=300)
